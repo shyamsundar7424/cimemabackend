@@ -1,0 +1,7 @@
+MESSAGE: next is not a function
+STACK: TypeError: next is not a function
+    at model.<anonymous> (C:\Users\hp\OneDrive\Desktop\test\server\models\User.js:26:5)
+    at async Kareem.execPre (C:\Users\hp\OneDrive\Desktop\test\server\node_modules\kareem\index.js:70:24)
+    at async model.$__save (C:\Users\hp\OneDrive\Desktop\test\server\node_modules\mongoose\lib\model.js:371:5)
+    at async model.save (C:\Users\hp\OneDrive\Desktop\test\server\node_modules\mongoose\lib\model.js:614:5)
+    at async seedData (C:\Users\hp\OneDrive\Desktop\test\server\scripts\seed_debug.js:27:13)
