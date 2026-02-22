@@ -92,7 +92,7 @@ router.get('/:id', async (req, res) => {
 // Add Movie (Admin)
 router.post('/', [auth, upload.single('image')], async (req, res) => {
     try {
-        const { title, category, description, movieLink, year, rating, director, cast } = req.body;
+        const { title, category, description, movieLink, trailerLink, downloadLink, fastDownloadLink, year, rating, director, cast } = req.body;
 
         if (!req.file && !req.body.image) {
             return res.status(400).json({ message: 'Please upload an image' });
@@ -101,7 +101,11 @@ router.post('/', [auth, upload.single('image')], async (req, res) => {
         const imageUrl = req.file ? `/uploads/${req.file.filename}` : req.body.image;
 
         const newMovie = new Movie({
-            title, category, image: imageUrl, description, movieLink,
+            title, category, image: imageUrl, description,
+            movieLink: movieLink || '',
+            trailerLink: trailerLink || '',
+            downloadLink: downloadLink || '',
+            fastDownloadLink: fastDownloadLink || '',
             year: year || '', rating: rating || '', director: director || '', cast: cast || '',
         });
 
@@ -116,7 +120,7 @@ router.post('/', [auth, upload.single('image')], async (req, res) => {
 // Update Movie (Admin)
 router.put('/:id', [auth, upload.single('image')], async (req, res) => {
     try {
-        const { title, category, description, movieLink, year, rating, director, cast } = req.body;
+        const { title, category, description, movieLink, trailerLink, downloadLink, fastDownloadLink, year, rating, director, cast } = req.body;
         let movie = await Movie.findById(req.params.id);
         if (!movie) return res.status(404).json({ message: 'Movie not found' });
 
@@ -132,7 +136,11 @@ router.put('/:id', [auth, upload.single('image')], async (req, res) => {
         }
 
         const movieFields = {
-            title, category, image: imageUrl, description, movieLink,
+            title, category, image: imageUrl, description,
+            movieLink: movieLink || movie.movieLink || '',
+            trailerLink: trailerLink !== undefined ? trailerLink : (movie.trailerLink || ''),
+            downloadLink: downloadLink !== undefined ? downloadLink : (movie.downloadLink || ''),
+            fastDownloadLink: fastDownloadLink !== undefined ? fastDownloadLink : (movie.fastDownloadLink || ''),
             year: year || movie.year || '',
             rating: rating || movie.rating || '',
             director: director || movie.director || '',

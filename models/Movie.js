@@ -18,8 +18,20 @@ const MovieSchema = new mongoose.Schema({
         required: true,
     },
     movieLink: {
-        type: String, // Download link
-        required: true,
+        type: String, // Legacy — kept for backward compat
+        default: '',
+    },
+    trailerLink: {
+        type: String, // YouTube embed URL or MP4 link
+        default: '',
+    },
+    downloadLink: {
+        type: String, // Main download link
+        default: '',
+    },
+    fastDownloadLink: {
+        type: String, // Fast server download link
+        default: '',
     },
     year: {
         type: String,
