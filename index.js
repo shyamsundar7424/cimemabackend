@@ -10,12 +10,25 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(express.json());
+const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    process.env.FRONTEND_URL,          // set this in Vercel dashboard
+].filter(Boolean);
+
 app.use(cors({
-    origin: [
-        'http://localhost:5173',
-        process.env.FRONTEND_URL
-    ].filter(Boolean),
-    credentials: true
+    origin: (origin, callback) => {
+        // Allow requests with no origin (mobile apps, curl, Postman)
+        if (!origin) return callback(null, true);
+        // Allow explicitly listed origins
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+        // Allow any *.vercel.app subdomain (covers preview deployments)
+        if (/\.vercel\.app$/.test(origin)) return callback(null, true);
+        callback(new Error(`CORS: origin ${origin} not allowed`));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'x-auth-token', 'Authorization'],
 }));
 app.use('/uploads', express.static('uploads'));
 
