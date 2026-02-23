@@ -1,5 +1,24 @@
 const mongoose = require('mongoose');
 
+const EpisodeSchema = new mongoose.Schema({
+    episodeNumber: {
+        type: Number,
+        required: true,
+    },
+    title: {
+        type: String,
+        required: true,
+    },
+    downloadLinkFast: {
+        type: String,
+        default: '',
+    },
+    downloadLinkNormal: {
+        type: String,
+        default: '',
+    },
+}, { _id: false });
+
 const MovieSchema = new mongoose.Schema({
     title: {
         type: String,
@@ -8,6 +27,11 @@ const MovieSchema = new mongoose.Schema({
     category: {
         type: String,
         required: true,
+    },
+    contentType: {
+        type: String,
+        enum: ['Movie', 'Web Series'],
+        default: 'Movie',
     },
     image: {
         type: String, // URL to image
@@ -32,6 +56,10 @@ const MovieSchema = new mongoose.Schema({
     fastDownloadLink: {
         type: String, // Fast server download link
         default: '',
+    },
+    episodes: {
+        type: [EpisodeSchema],
+        default: [],
     },
     year: {
         type: String,

@@ -67,8 +67,8 @@ router.get('/', async (req, res) => {
         const movies = await Movie.find(query).sort({ createdAt: -1 });
         res.json(movies);
     } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server Error');
+        console.error('GET /api/movies error:', err);
+        res.status(500).json({ message: 'Server Error' });
     }
 });
 
@@ -81,38 +81,81 @@ router.get('/:id', async (req, res) => {
         }
         res.json(movie);
     } catch (err) {
-        console.error(err.message);
+        console.error('GET /api/movies/:id error:', err);
         if (err.kind === 'ObjectId') {
             return res.status(404).json({ message: 'Movie not found' });
         }
-        res.status(500).send('Server Error');
+        res.status(500).json({ message: 'Server Error' });
     }
 });
 
 // Add Movie (Admin)
 router.post('/', [auth, upload.single('image')], async (req, res) => {
     try {
-        const { title, category, description, movieLink, trailerLink, downloadLink, fastDownloadLink, year, rating, director, cast } = req.body;
+        const {
+            title, category, description, movieLink,
+            trailerLink, downloadLink, fastDownloadLink,
+            year, rating, director, cast,
+            contentType, episodes
+        } = req.body;
+
+        // ── Field validation ──────────────────────────────
+        const errors = [];
+        if (!title || !title.trim()) errors.push('Title is required');
+        if (!category || !category.trim()) errors.push('Category is required');
+        if (!description || !description.trim()) errors.push('Description is required');
 
         if (!req.file && !req.body.image) {
-            return res.status(400).json({ message: 'Please upload an image' });
+            errors.push('Please upload an image');
+        }
+
+        // If Web Series, validate episodes
+        let parsedEpisodes = [];
+        const type = contentType || 'Movie';
+
+        if (type === 'Web Series') {
+            try {
+                parsedEpisodes = episodes ? JSON.parse(episodes) : [];
+            } catch (parseErr) {
+                errors.push('Episodes data is invalid JSON');
+            }
+            if (!parsedEpisodes || parsedEpisodes.length === 0) {
+                errors.push('Web Series must have at least one episode');
+            }
+        }
+
+        if (errors.length > 0) {
+            return res.status(400).json({ message: errors.join(', '), errors });
         }
 
         const imageUrl = req.file ? `/uploads/${req.file.filename}` : req.body.image;
 
         const newMovie = new Movie({
-            title, category, image: imageUrl, description,
+            title: title.trim(),
+            category: category.trim(),
+            contentType: type,
+            image: imageUrl,
+            description: description.trim(),
             movieLink: movieLink || '',
             trailerLink: trailerLink || '',
             downloadLink: downloadLink || '',
             fastDownloadLink: fastDownloadLink || '',
-            year: year || '', rating: rating || '', director: director || '', cast: cast || '',
+            episodes: type === 'Web Series' ? parsedEpisodes : [],
+            year: year || '',
+            rating: rating || '',
+            director: director || '',
+            cast: cast || '',
         });
 
         const movie = await newMovie.save();
-        res.json(movie);
+        console.log(`✅ Movie added successfully: "${movie.title}" (${movie.contentType}) [ID: ${movie._id}]`);
+        res.status(201).json(movie);
     } catch (err) {
-        console.error(err.message);
+        console.error('POST /api/movies error:', err);
+        if (err.name === 'ValidationError') {
+            const messages = Object.values(err.errors).map(e => e.message);
+            return res.status(400).json({ message: messages.join(', '), errors: messages });
+        }
         res.status(500).json({ message: err.message || 'Server Error' });
     }
 });
@@ -120,7 +163,13 @@ router.post('/', [auth, upload.single('image')], async (req, res) => {
 // Update Movie (Admin)
 router.put('/:id', [auth, upload.single('image')], async (req, res) => {
     try {
-        const { title, category, description, movieLink, trailerLink, downloadLink, fastDownloadLink, year, rating, director, cast } = req.body;
+        const {
+            title, category, description, movieLink,
+            trailerLink, downloadLink, fastDownloadLink,
+            year, rating, director, cast,
+            contentType, episodes
+        } = req.body;
+
         let movie = await Movie.findById(req.params.id);
         if (!movie) return res.status(404).json({ message: 'Movie not found' });
 
@@ -135,21 +184,45 @@ router.put('/:id', [auth, upload.single('image')], async (req, res) => {
             imageUrl = req.body.image;
         }
 
+        // Parse episodes if provided
+        let parsedEpisodes = movie.episodes || [];
+        const type = contentType || movie.contentType || 'Movie';
+
+        if (episodes !== undefined) {
+            try {
+                parsedEpisodes = JSON.parse(episodes);
+            } catch (parseErr) {
+                return res.status(400).json({ message: 'Episodes data is invalid JSON' });
+            }
+        }
+
+        if (type === 'Web Series' && (!parsedEpisodes || parsedEpisodes.length === 0)) {
+            return res.status(400).json({ message: 'Web Series must have at least one episode' });
+        }
+
         const movieFields = {
             title, category, image: imageUrl, description,
+            contentType: type,
             movieLink: movieLink || movie.movieLink || '',
             trailerLink: trailerLink !== undefined ? trailerLink : (movie.trailerLink || ''),
             downloadLink: downloadLink !== undefined ? downloadLink : (movie.downloadLink || ''),
             fastDownloadLink: fastDownloadLink !== undefined ? fastDownloadLink : (movie.fastDownloadLink || ''),
+            episodes: type === 'Web Series' ? parsedEpisodes : [],
             year: year || movie.year || '',
             rating: rating || movie.rating || '',
             director: director || movie.director || '',
             cast: cast || movie.cast || '',
         };
+
         movie = await Movie.findByIdAndUpdate(req.params.id, { $set: movieFields }, { new: true });
+        console.log(`✅ Movie updated successfully: "${movie.title}" [ID: ${movie._id}]`);
         res.json(movie);
     } catch (err) {
-        console.error(err.message);
+        console.error('PUT /api/movies/:id error:', err);
+        if (err.name === 'ValidationError') {
+            const messages = Object.values(err.errors).map(e => e.message);
+            return res.status(400).json({ message: messages.join(', '), errors: messages });
+        }
         res.status(500).json({ message: err.message || 'Server Error' });
     }
 });
@@ -167,10 +240,11 @@ router.delete('/:id', auth, async (req, res) => {
         }
 
         await Movie.findByIdAndDelete(req.params.id);
+        console.log(`🗑️ Movie deleted: "${movie.title}" [ID: ${movie._id}]`);
         res.json({ message: 'Movie removed' });
     } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server Error');
+        console.error('DELETE /api/movies/:id error:', err);
+        res.status(500).json({ message: 'Server Error' });
     }
 });
 
